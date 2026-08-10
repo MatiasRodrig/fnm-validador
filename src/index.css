@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg-dark: #090d16;
+  --panel-bg: #111827;
+  --panel-border: #1f2937;
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  
+  --color-valid: #10b981;
+  --color-valid-bg: rgba(16, 185, 129, 0.15);
+  --color-valid-border: #059669;
+  
+  --color-used: #ef4444;
+  --color-used-bg: rgba(239, 68, 68, 0.2);
+  --color-used-border: #dc2626;
+  
+  --color-invalid: #f59e0b;
+  --color-invalid-bg: rgba(245, 158, 11, 0.15);
+  --color-invalid-border: #d97706;
+
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  max-width: 600px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  transition: max-width 0.3s ease;
+}
+
+#root.station-layout {
+  max-width: 1400px;
+}
+
+@media (min-width: 768px) {
+  #root {
+    max-width: 1400px;
+  }
+  #root.handheld-layout {
+    max-width: 600px;
+  }
+}
+
+/* Glassmorphism cards */
+.card-glass {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.5rem;
+}
+
+/* Result Card Glow Effects */
+.glow-success {
+  border: 3px solid var(--color-valid-border) !important;
+  background: var(--color-valid-bg) !important;
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.35);
+  animation: pulseGreen 1.5s infinite alternate;
+}
+
+.glow-danger {
+  border: 3px solid var(--color-used-border) !important;
+  background: var(--color-used-bg) !important;
+  box-shadow: 0 0 50px rgba(239, 68, 68, 0.5);
+  animation: shakeDanger 0.4s ease-in-out;
+}
+
+.glow-warning {
+  border: 3px solid var(--color-invalid-border) !important;
+  background: var(--color-invalid-bg) !important;
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.35);
+}
+
+@keyframes pulseGreen {
+  from { box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
+  to { box-shadow: 0 0 50px rgba(16, 185, 129, 0.5); }
+}
+
+@keyframes shakeDanger {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
