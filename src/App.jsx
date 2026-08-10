@@ -6,20 +6,7 @@ import HistoryLog from './components/HistoryLog';
 import SettingsModal from './components/SettingsModal';
 import LoginView from './components/LoginView';
 import { playBeep } from './utils/audio';
-
-function getDefaultApiUrl() {
-  const saved = localStorage.getItem('validator_api_url');
-  if (saved !== null) return saved;
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  if (window.location.protocol === 'https:') {
-    return '';
-  }
-  const host = window.location.hostname || 'localhost';
-  const port = import.meta.env.VITE_API_PORT || '6100';
-  return `http://${host}:${port}`;
-}
+import { getDefaultApiUrl, formatApiUrlForFetch } from './utils/urlHelper';
 
 export default function App() {
   const [apiUrl, setApiUrl] = useState(getDefaultApiUrl());
@@ -141,7 +128,8 @@ export default function App() {
     const scannedByUsername = currentUser ? (currentUser.username || currentUser.fullName) : 'AppValidador';
 
     try {
-      const response = await fetch(`${apiUrl}/api/print-jobs/validate-token`, {
+      const formattedApiUrl = formatApiUrlForFetch(apiUrl);
+      const response = await fetch(`${formattedApiUrl}/api/print-jobs/validate-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

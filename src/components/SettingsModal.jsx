@@ -6,9 +6,10 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
 
   if (!isOpen) return null;
 
-  const currentHost = window.location.hostname || 'localhost';
-  const autoDetectedUrl = `http://${currentHost}:6100`;
-  const localhostUrl = 'http://localhost:6100';
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const currentHost = (typeof window !== 'undefined' && window.location.hostname) || 'localhost';
+  const autoDetectedUrl = isHttps ? '' : `http://${currentHost}:6100`;
+  const localhostUrl = isHttps ? '' : 'http://localhost:6100';
 
   const handleSubmit = (e) => {
     e.preventDefault();

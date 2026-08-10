@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, User, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { formatApiUrlForFetch } from '../utils/urlHelper';
 
 export default function LoginView({ apiUrl, onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -18,7 +19,7 @@ export default function LoginView({ apiUrl, onLoginSuccess }) {
     setError('');
 
     try {
-      const formattedUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
+      const formattedUrl = formatApiUrlForFetch(apiUrl);
       const response = await fetch(`${formattedUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
