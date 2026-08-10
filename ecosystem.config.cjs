@@ -6,7 +6,7 @@ module.exports = {
       args: 'run dev -- --host 0.0.0.0 --port 6101',
       cwd: './',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'development',
         PORT: 6101
       },
       watch: false,
