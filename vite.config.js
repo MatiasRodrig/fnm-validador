@@ -16,6 +16,11 @@ export default defineConfig(({ command }) => {
     server: {
       host: true,
       port: 6101,
+      allowedHosts: [
+        'fnm.sanvicentemisiones.com',
+        'validador.sanvicentemisiones.com',
+        '.sanvicentemisiones.com'
+      ],
       proxy: {
         '/api': {
           target: process.env.VITE_API_URL || 'http://localhost:6100',
