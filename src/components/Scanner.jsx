@@ -6,6 +6,11 @@ export default function Scanner({ onVerifyToken, isProcessing }) {
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [cameraError, setCameraError] = useState(null);
   const scannerRef = useRef(null);
+  const onVerifyRef = useRef(onVerifyToken);
+
+  useEffect(() => {
+    onVerifyRef.current = onVerifyToken;
+  }, [onVerifyToken]);
 
   useEffect(() => {
     startScanner();
@@ -77,7 +82,9 @@ export default function Scanner({ onVerifyToken, isProcessing }) {
         { facingMode: "environment" },
         config,
         (decodedText) => {
-          onVerifyToken(decodedText);
+          if (onVerifyRef.current) {
+            onVerifyRef.current(decodedText);
+          }
         },
         () => {}
       );

@@ -41,6 +41,17 @@ export default function App() {
     }
   });
 
+  const isCheckOnlyRef = useRef(isCheckOnly);
+  const currentUserRef = useRef(currentUser);
+
+  useEffect(() => {
+    isCheckOnlyRef.current = isCheckOnly;
+  }, [isCheckOnly]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   const userIsAdmin = isAdminUser(currentUser);
 
   // Ensure non-admin users cannot be in checkOnly mode
@@ -52,16 +63,20 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData);
+    currentUserRef.current = userData;
     localStorage.setItem('validator_user', JSON.stringify(userData));
     if (!isAdminUser(userData)) {
       setIsCheckOnly(false);
+      isCheckOnlyRef.current = false;
     }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    currentUserRef.current = null;
     localStorage.removeItem('validator_user');
     setIsCheckOnly(false);
+    isCheckOnlyRef.current = false;
     setResult(null);
     setHistory([]);
   };
@@ -152,8 +167,10 @@ export default function App() {
 
     setIsProcessing(true);
 
-    const scannedByUsername = currentUser ? (currentUser.username || currentUser.fullName) : 'AppValidador';
-    const effectiveCheckOnly = userIsAdmin && isCheckOnly;
+    const currentCheckOnly = isCheckOnlyRef.current;
+    const currentU = currentUserRef.current;
+    const currentIsAdmin = isAdminUser(currentU);
+    const scannedByUsername = currentU ? (currentU.username || currentU.fullName) : 'AppValidador';
 
     try {
       const formattedApiUrl = formatApiUrlForFetch(apiUrl);
@@ -163,9 +180,9 @@ export default function App() {
         body: JSON.stringify({
           scannedData: cleanToken,
           scannedBy: scannedByUsername,
-          userRole: currentUser?.role,
-          adminUsername: userIsAdmin ? currentUser?.username : undefined,
-          checkOnly: effectiveCheckOnly
+          userRole: currentU?.role,
+          adminUsername: currentIsAdmin ? currentU?.username : undefined,
+          checkOnly: currentCheckOnly
         })
       });
 
@@ -411,7 +428,10 @@ export default function App() {
               }}
             >
               <button
-                onClick={() => setIsCheckOnly(false)}
+                onClick={() => {
+                  setIsCheckOnly(false);
+                  isCheckOnlyRef.current = false;
+                }}
                 style={{
                   backgroundColor: !isCheckOnly ? '#10b981' : 'transparent',
                   color: !isCheckOnly ? '#ffffff' : '#9ca3af',
@@ -430,7 +450,10 @@ export default function App() {
                 <Zap size={14} /> Ingreso
               </button>
               <button
-                onClick={() => setIsCheckOnly(true)}
+                onClick={() => {
+                  setIsCheckOnly(true);
+                  isCheckOnlyRef.current = true;
+                }}
                 style={{
                   backgroundColor: isCheckOnly ? '#6366f1' : 'transparent',
                   color: isCheckOnly ? '#ffffff' : '#9ca3af',
