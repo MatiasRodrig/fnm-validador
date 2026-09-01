@@ -8,6 +8,20 @@ import LoginView from './components/LoginView';
 import { playBeep } from './utils/audio';
 import { getDefaultApiUrl, formatApiUrlForFetch } from './utils/urlHelper';
 
+const isAdminUser = (user) => {
+  if (!user) return false;
+  const role = (user.role || user.Role || '').trim().toLowerCase();
+  const username = (user.username || '').trim().toLowerCase();
+  return (
+    role === 'admin' ||
+    role === 'admintecnico' ||
+    role === 'adminentradas' ||
+    role === 'admincantina' ||
+    role.startsWith('admin') ||
+    username.startsWith('admin.')
+  );
+};
+
 export default function App() {
   const [apiUrl, setApiUrl] = useState(getDefaultApiUrl());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -27,14 +41,27 @@ export default function App() {
     }
   });
 
+  const userIsAdmin = isAdminUser(currentUser);
+
+  // Ensure non-admin users cannot be in checkOnly mode
+  useEffect(() => {
+    if (!userIsAdmin && isCheckOnly) {
+      setIsCheckOnly(false);
+    }
+  }, [currentUser, userIsAdmin]);
+
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData);
     localStorage.setItem('validator_user', JSON.stringify(userData));
+    if (!isAdminUser(userData)) {
+      setIsCheckOnly(false);
+    }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('validator_user');
+    setIsCheckOnly(false);
     setResult(null);
     setHistory([]);
   };
@@ -126,6 +153,7 @@ export default function App() {
     setIsProcessing(true);
 
     const scannedByUsername = currentUser ? (currentUser.username || currentUser.fullName) : 'AppValidador';
+    const effectiveCheckOnly = userIsAdmin && isCheckOnly;
 
     try {
       const formattedApiUrl = formatApiUrlForFetch(apiUrl);
@@ -135,7 +163,9 @@ export default function App() {
         body: JSON.stringify({
           scannedData: cleanToken,
           scannedBy: scannedByUsername,
-          checkOnly: isCheckOnly
+          userRole: currentUser?.role,
+          adminUsername: userIsAdmin ? currentUser?.username : undefined,
+          checkOnly: effectiveCheckOnly
         })
       });
 
@@ -189,6 +219,23 @@ export default function App() {
           {
             status: 'ALREADY_USED',
             ticket: data.ticket,
+            token: cleanToken,
+            time: nowTime
+          },
+          ...prev
+        ]);
+      } else if (response.status === 403) {
+        // FORBIDDEN (Yellow/Orange)
+        const forbiddenRes = {
+          status: 'INVALID',
+          message: data.message || 'El modo consulta es exclusivo para administradores.',
+          token: cleanToken
+        };
+        setResult(forbiddenRes);
+        playBeep('error');
+        setHistory((prev) => [
+          {
+            status: 'INVALID',
             token: cleanToken,
             time: nowTime
           },
@@ -303,20 +350,28 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <div
             style={{
-              backgroundColor: 'rgba(99, 102, 241, 0.2)',
+              backgroundColor: userIsAdmin && isCheckOnly ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.2)',
               padding: '0.5rem',
               borderRadius: '0.75rem',
               display: 'flex'
             }}
           >
-            <ShieldCheck size={26} color="#6366f1" />
+            <ShieldCheck size={26} color={userIsAdmin && isCheckOnly ? '#818cf8' : '#10b981'} />
           </div>
           <div>
             <h1 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
               VALENT - FNDLM 2026
             </h1>
-            <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
-              <Camera size={12} color="#10b981" /> Modo Exclusivo Cámara
+            <span style={{ fontSize: '0.75rem', color: userIsAdmin && isCheckOnly ? '#a5b4fc' : '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
+              {userIsAdmin && isCheckOnly ? (
+                <>
+                  <Search size={12} color="#a5b4fc" /> Modo Consulta Admin (Sin Quemar QR)
+                </>
+              ) : (
+                <>
+                  <Camera size={12} color="#10b981" /> Modo Ingreso (Validación / Quemado)
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -344,55 +399,76 @@ export default function App() {
             </span>
           </div>
 
-          {/* Action Mode Toggle: Ingreso vs Consulta */}
-          <div
-            style={{
-              display: 'flex',
-              backgroundColor: '#111827',
-              border: isCheckOnly ? '1px solid rgba(99,102,241,0.6)' : '1px solid #374151',
-              borderRadius: '0.75rem',
-              padding: '0.2rem'
-            }}
-          >
-            <button
-              onClick={() => setIsCheckOnly(false)}
+          {/* Action Mode Toggle: Only shown for ADMIN users */}
+          {userIsAdmin ? (
+            <div
               style={{
-                backgroundColor: !isCheckOnly ? '#10b981' : 'transparent',
-                color: !isCheckOnly ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                borderRadius: '0.5rem',
-                padding: '0.35rem 0.65rem',
-                cursor: 'pointer',
-                fontSize: '0.75rem',
-                fontWeight: 700,
+                display: 'flex',
+                backgroundColor: '#111827',
+                border: isCheckOnly ? '1px solid rgba(99,102,241,0.8)' : '1px solid #374151',
+                borderRadius: '0.75rem',
+                padding: '0.2rem'
+              }}
+            >
+              <button
+                onClick={() => setIsCheckOnly(false)}
+                style={{
+                  backgroundColor: !isCheckOnly ? '#10b981' : 'transparent',
+                  color: !isCheckOnly ? '#ffffff' : '#9ca3af',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  padding: '0.35rem 0.65rem',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+                title="Modo Ingreso: Válida el acceso y marca el ticket como USADO en la base de datos"
+              >
+                <Zap size={14} /> Ingreso
+              </button>
+              <button
+                onClick={() => setIsCheckOnly(true)}
+                style={{
+                  backgroundColor: isCheckOnly ? '#6366f1' : 'transparent',
+                  color: isCheckOnly ? '#ffffff' : '#9ca3af',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  padding: '0.35rem 0.65rem',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+                title="Modo Consulta: Verifica validez del QR sin quemar ni modificar el registro (Exclusivo Admin)"
+              >
+                <Search size={14} /> Consulta
+              </button>
+            </div>
+          ) : (
+            /* Cashiers / Validators Mode Badge (Fixed to Validation Mode) */
+            <div
+              style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.3rem'
-              }}
-              title="Modo Ingreso: Válida el acceso y marca el ticket como USADO en la base de datos"
-            >
-              <Zap size={14} /> Ingreso
-            </button>
-            <button
-              onClick={() => setIsCheckOnly(true)}
-              style={{
-                backgroundColor: isCheckOnly ? '#6366f1' : 'transparent',
-                color: isCheckOnly ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                borderRadius: '0.5rem',
+                gap: '0.35rem',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                color: '#34d399',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '0.75rem',
                 padding: '0.35rem 0.65rem',
-                cursor: 'pointer',
                 fontSize: '0.75rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem'
+                fontWeight: 700
               }}
-              title="Modo Consulta: Verifica validez del QR sin quemar ni modificar el registro"
+              title="Operador de acceso: Validación directa y quemado de tickets"
             >
-              <Search size={14} /> Consulta
-            </button>
-          </div>
+              <Zap size={14} /> Modo Ingreso
+            </div>
+          )}
 
           <button
             onClick={() => setIsSettingsOpen(true)}

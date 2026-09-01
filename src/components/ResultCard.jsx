@@ -26,6 +26,8 @@ export default function ResultCard({ result }) {
   if (status === 'CHECK_ONLY') {
     const isUnsold = ticket?.isSold === false || isSold === false;
     const alreadyUsed = ticket?.isUsed === true || isUsed === true;
+    const usedDate = ticket?.usedAt || usedAt;
+    const usedOperator = ticket?.usedByUsername || usedBy;
 
     return (
       <div className="card-glass" style={{
@@ -33,11 +35,21 @@ export default function ResultCard({ result }) {
         textAlign: 'center',
         marginBottom: '1.5rem',
         borderRadius: '1.75rem',
-        boxShadow: '0 0 25px rgba(99, 102, 241, 0.35)',
-        border: '1px solid rgba(99, 102, 241, 0.4)'
+        boxShadow: alreadyUsed ? '0 0 25px rgba(239, 68, 68, 0.35)' : '0 0 25px rgba(99, 102, 241, 0.35)',
+        border: alreadyUsed ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(99, 102, 241, 0.4)'
       }}>
-        <div style={{ display: 'inline-flex', padding: '0.75rem', borderRadius: '50%', backgroundColor: 'rgba(99, 102, 241, 0.2)', marginBottom: '0.75rem' }}>
-          <CheckCircle2 size={48} color="#818cf8" />
+        <div style={{
+          display: 'inline-flex',
+          padding: '0.75rem',
+          borderRadius: '50%',
+          backgroundColor: alreadyUsed ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+          marginBottom: '0.75rem'
+        }}>
+          {alreadyUsed ? (
+            <AlertTriangle size={48} color="#ef4444" />
+          ) : (
+            <CheckCircle2 size={48} color="#818cf8" />
+          )}
         </div>
 
         <div style={{
@@ -49,10 +61,10 @@ export default function ResultCard({ result }) {
           padding: '0.4rem 1rem',
           borderRadius: '2rem',
           display: 'inline-block',
-          marginBottom: '1rem',
+          marginBottom: '0.85rem',
           textTransform: 'uppercase'
         }}>
-          🔍 MODO CONSULTA: TICKET AUTÉNTICO (SIN QUEMAR QR)
+          🔍 MODO CONSULTA ADMIN (SIN QUEMAR QR)
         </div>
 
         {ticket && (
@@ -64,7 +76,7 @@ export default function ResultCard({ result }) {
               lineHeight: 1.1,
               marginBottom: '0.5rem'
             }}>
-              {ticket.productName || `${ticket.eventDay} - ${ticket.sector}`}
+              {ticket.productName || (ticket.eventDay ? `${ticket.eventDay} - ${ticket.sector || 'General'}` : 'Entrada')}
             </h1>
             
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
@@ -75,14 +87,26 @@ export default function ResultCard({ result }) {
               )}
               {alreadyUsed ? (
                 <span style={{ backgroundColor: '#dc2626', color: '#fff', fontWeight: 800, padding: '0.3rem 0.85rem', borderRadius: '1rem', fontSize: '0.85rem' }}>
-                  ⚠️ YA UTILIZADA
+                  ⚠️ TICKET AUTÉNTICO PERO YA FUE USADO
                 </span>
               ) : !isUnsold && (
                 <span style={{ backgroundColor: '#059669', color: '#fff', fontWeight: 800, padding: '0.3rem 0.85rem', borderRadius: '1rem', fontSize: '0.85rem' }}>
-                  ✅ DISPONIBLE Y VÁLIDA
+                  ✅ ENTRADA AUTÉNTICA Y DISPONIBLE (QR INTACTO)
                 </span>
               )}
             </div>
+
+            {!alreadyUsed && !isUnsold && (
+              <p style={{ color: '#a7f3d0', fontSize: '0.85rem', fontWeight: 600, marginTop: '0.75rem', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '0.5rem', borderRadius: '0.75rem' }}>
+                ℹ️ Esta consulta NO quemó el código QR. El asistente podrá ingresar normalmente en la entrada.
+              </p>
+            )}
+
+            {alreadyUsed && (
+              <p style={{ color: '#fca5a5', fontSize: '0.85rem', fontWeight: 600, marginTop: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.5rem', borderRadius: '0.75rem' }}>
+                {message || 'Esta entrada ya fue utilizada con anterioridad.'}
+              </p>
+            )}
           </div>
         )}
 
@@ -101,7 +125,7 @@ export default function ResultCard({ result }) {
             {ticket.buyerFullName && (
               <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <User size={15} color="#9ca3af" />
-                <span>Titular: <strong style={{ color: '#fff' }}>{ticket.buyerFullName}</strong></span>
+                <span>Titular: <strong style={{ color: '#fff' }}>{ticket.buyerFullName}</strong> {ticket.buyerDni ? `(DNI: ${ticket.buyerDni})` : ''}</span>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -112,6 +136,12 @@ export default function ResultCard({ result }) {
               <DollarSign size={15} color="#9ca3af" />
               <span>Precio: <strong style={{ color: '#34d399' }}>${ticket.pricePaid || ticket.price || 0}</strong></span>
             </div>
+            {alreadyUsed && (usedDate || usedOperator) && (
+              <div style={{ gridColumn: 'span 2', fontSize: '0.8rem', color: '#fca5a5', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem', borderRadius: '0.5rem' }}>
+                {usedDate && <div><strong>Usado previamente el:</strong> {new Date(usedDate).toLocaleString()}</div>}
+                {usedOperator && <div><strong>Validado por:</strong> {usedOperator}</div>}
+              </div>
+            )}
             <div style={{ gridColumn: 'span 2', fontSize: '0.75rem', color: '#9ca3af', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.5rem' }}>
               Token: <span style={{ fontFamily: 'monospace', color: '#c7d2fe' }}>{ticket.token}</span>
             </div>

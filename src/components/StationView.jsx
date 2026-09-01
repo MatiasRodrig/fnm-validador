@@ -497,6 +497,7 @@ export default function StationView({
                 {history.map((item, idx) => {
                   const isValid = item.status === 'VALIDATED';
                   const isUsed = item.status === 'ALREADY_USED';
+                  const isCheckOnly = item.status === 'CHECK_ONLY';
 
                   return (
                     <tr
@@ -510,7 +511,21 @@ export default function StationView({
                         {item.time}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-                        {isValid ? (
+                        {isCheckOnly ? (
+                          <span
+                            style={{
+                              backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                              color: '#a5b4fc',
+                              border: '1px solid rgba(99, 102, 241, 0.4)',
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '1rem',
+                              fontWeight: 800,
+                              fontSize: '0.75rem'
+                            }}
+                          >
+                            🔍 CONSULTA
+                          </span>
+                        ) : isValid ? (
                           <span
                             style={{
                               backgroundColor: 'rgba(16, 185, 129, 0.2)',
