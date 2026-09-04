@@ -158,16 +158,18 @@ export default function App() {
       }
     }
 
-    // Cooldown check for camera continuous scanning (4 second debounce per same token)
+    // Cooldown check for camera continuous scanning (4s for burn/validation, 1.2s for check-only)
+    const currentCheckOnly = isCheckOnlyRef.current;
+    const cooldownMs = currentCheckOnly ? 1200 : 4000;
     const now = Date.now();
-    if (lastScannedRef.current.token === cleanToken && now - lastScannedRef.current.time < 4000) {
+
+    if (lastScannedRef.current.token === cleanToken && now - lastScannedRef.current.time < cooldownMs) {
       return;
     }
     lastScannedRef.current = { token: cleanToken, time: now };
 
     setIsProcessing(true);
 
-    const currentCheckOnly = isCheckOnlyRef.current;
     const currentU = currentUserRef.current;
     const currentIsAdmin = isAdminUser(currentU);
     const scannedByUsername = currentU ? (currentU.username || currentU.fullName) : 'AppValidador';
