@@ -34,7 +34,7 @@ export function getDefaultApiUrl() {
   }
 
   if (isHttps) {
-    return '';
+    return 'https://fnm-api.sanvicentemisiones.com';
   }
 
   const host = window.location.hostname || 'localhost';

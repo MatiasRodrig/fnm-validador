@@ -95,8 +95,10 @@ export default function App() {
 
     try {
       const urlObj = new URL(formatted);
-      if (!urlObj.port) {
-        urlObj.port = '5294';
+      // Bug #13 fix: Do not force a port on HTTPS or production domains
+      const isLocalHost = urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1';
+      if (!urlObj.port && isLocalHost && urlObj.protocol === 'http:') {
+        urlObj.port = '6100';
         formatted = urlObj.toString().replace(/\/+$/, '');
       }
     } catch (e) {}
