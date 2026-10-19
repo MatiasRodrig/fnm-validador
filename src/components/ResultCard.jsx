@@ -286,7 +286,7 @@ export default function ResultCard({ result, assignedDay }) {
               >
                 {usedDate && (
                   <div>
-                    <strong>Quemado el:</strong> {new Date(usedDate).toLocaleString('es-AR')}
+                    <strong>Quemado el:</strong> {new Date(usedDate).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}
                   </div>
                 )}
                 {usedOperator && (
@@ -394,7 +394,8 @@ export default function ResultCard({ result, assignedDay }) {
       ? new Date(eventDateRaw).toLocaleDateString('es-AR', {
           weekday: 'long',
           day: '2-digit',
-          month: 'long'
+          month: 'long',
+          timeZone: 'America/Argentina/Buenos_Aires'
         })
       : '';
 
@@ -669,7 +670,7 @@ export default function ResultCard({ result, assignedDay }) {
               <span>
                 Hora ingreso:{' '}
                 <strong style={{ color: 'var(--text-primary)' }}>
-                  {ticket.usedAt ? new Date(ticket.usedAt).toLocaleTimeString('es-AR') : new Date().toLocaleTimeString('es-AR')}
+                  {ticket.usedAt ? new Date(ticket.usedAt).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : new Date().toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}
                 </strong>
               </span>
             </div>
@@ -763,7 +764,7 @@ export default function ResultCard({ result, assignedDay }) {
               </div>
               <div>
                 <strong>Quemado previamente el:</strong>{' '}
-                {usedDate ? new Date(usedDate).toLocaleString('es-AR') : 'Previamente registrado'}
+                {usedDate ? new Date(usedDate).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : 'Previamente registrado'}
               </div>
               {usedOperator && (
                 <div>

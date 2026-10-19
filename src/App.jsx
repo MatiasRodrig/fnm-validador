@@ -334,7 +334,7 @@ export default function App() {
       const resSuccess = data.success ?? data.Success;
       const resTicket = data.ticket || data.Ticket;
       const resMessage = data.message || data.Message;
-      const nowTime = new Date().toLocaleTimeString('es-AR');
+      const nowTime = new Date().toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
 
       const normalizedData = {
         ...data,
@@ -782,7 +782,8 @@ export default function App() {
                         ? ` — ${new Date(assignedEventDay.date).toLocaleDateString('es-AR', {
                             weekday: 'short',
                             day: '2-digit',
-                            month: 'short'
+                            month: 'short',
+                            timeZone: 'America/Argentina/Buenos_Aires'
                           })}`
                         : ''
                     }`
@@ -812,7 +813,8 @@ export default function App() {
                 ? new Date(day.date).toLocaleDateString('es-AR', {
                     weekday: 'short',
                     day: '2-digit',
-                    month: 'short'
+                    month: 'short',
+                    timeZone: 'America/Argentina/Buenos_Aires'
                   })
                 : '';
 

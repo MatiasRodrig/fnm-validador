@@ -220,7 +220,7 @@ export default function StationView({
                     <span>
                       Impresión:{' '}
                       <strong style={{ color: '#fff' }}>
-                        {result.ticket.printedAt ? new Date(result.ticket.printedAt).toLocaleTimeString() : '-'}
+                        {result.ticket.printedAt ? new Date(result.ticket.printedAt).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : '-'}
                       </strong>
                     </span>
                   </div>
@@ -309,7 +309,7 @@ export default function StationView({
                     <div>
                       <strong>Usado previamente el:</strong>{' '}
                       {result.usedAt || result.ticket.usedAt
-                        ? new Date(result.usedAt || result.ticket.usedAt).toLocaleString()
+                        ? new Date(result.usedAt || result.ticket.usedAt).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
                         : 'Previamente marcado'}
                     </div>
                     {(result.usedBy || result.ticket.usedByUsername) && (
