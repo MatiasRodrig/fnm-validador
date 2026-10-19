@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, X, Server, Check, Wifi, RotateCcw, Shield } from 'lucide-react';
+import { X, Server, Check, Wifi, RotateCcw } from 'lucide-react';
 
 export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl }) {
   const [url, setUrl] = useState(apiUrl);
@@ -31,46 +31,88 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 100,
-      padding: '1rem'
-    }}>
-      <div className="card-glass" style={{
-        width: '100%',
-        maxWidth: '480px',
-        padding: '1.5rem',
-        borderRadius: '1.5rem',
-        border: '1px solid rgba(255,255,255,0.15)'
-      }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(12, 10, 12, 0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '1rem'
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          padding: '1.75rem',
+          borderRadius: 'var(--radius-xl)',
+          border: '1px solid var(--border-light)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'var(--accent-gradient)'
+          }}
+        />
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Server size={22} color="#6366f1" />
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f3f4f6' }}>Configurar Servidor API</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <Server size={22} color="var(--brand-gold)" />
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Configurar Servidor API
+            </h3>
           </div>
-          <button 
-            onClick={onClose} 
-            style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '0.25rem' }}>
-            <X size={20} />
+          <button
+            onClick={onClose}
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '0.35rem',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex'
+            }}
+          >
+            <X size={18} />
           </button>
         </div>
 
         {/* Quick Presets Section */}
-        <div style={{
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          borderRadius: '1rem',
-          padding: '1rem',
-          marginBottom: '1.25rem'
-        }}>
-          <span style={{ fontSize: '0.8rem', color: '#a5b4fc', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.6rem' }}>
-            <Wifi size={16} /> SELECCIÓN RÁPIDA (1-CLIC):
+        <div
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-light)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1rem',
+            marginBottom: '1.25rem'
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.78rem',
+              color: 'var(--brand-gold)',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              marginBottom: '0.65rem',
+              textTransform: 'uppercase'
+            }}
+          >
+            <Wifi size={15} /> Selección Rápida (1-Clic):
           </span>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -78,44 +120,48 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
               type="button"
               onClick={() => handleApplyPreset('')}
               style={{
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                borderRadius: '0.65rem',
-                padding: '0.6rem 0.85rem',
+                backgroundColor: 'rgba(34, 197, 94, 0.14)',
+                color: '#86efac',
+                border: '1px solid rgba(34, 197, 94, 0.35)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.65rem 0.85rem',
                 fontSize: '0.85rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                fontFamily: 'inherit'
               }}
             >
               <span>🛡️ Proxy HTTPS Automático (Recomendado)</span>
-              <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Sin bloqueo</span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>Sin bloqueo</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleApplyPreset(autoDetectedUrl)}
               style={{
-                backgroundColor: '#1e1b4b',
-                color: '#818cf8',
-                border: '1px solid #4338ca',
-                borderRadius: '0.65rem',
-                padding: '0.6rem 0.85rem',
+                backgroundColor: 'var(--bg-elevated)',
+                color: 'var(--brand-gold)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.65rem 0.85rem',
                 fontSize: '0.85rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                fontFamily: 'inherit'
               }}
             >
-              <span>📍 Conexión Directa IP: <strong>{currentHost}</strong></span>
-              <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>:6100</span>
+              <span>
+                📍 Conexión Directa IP: <strong>{currentHost}</strong>
+              </span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>:6100</span>
             </button>
 
             {currentHost !== 'localhost' && currentHost !== '127.0.0.1' && (
@@ -123,15 +169,16 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
                 type="button"
                 onClick={() => handleApplyPreset(localhostUrl)}
                 style={{
-                  backgroundColor: '#1f2937',
-                  color: '#d1d5db',
-                  border: '1px solid #374151',
-                  borderRadius: '0.65rem',
-                  padding: '0.5rem 0.85rem',
+                  backgroundColor: 'var(--bg-elevated)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.55rem 0.85rem',
                   fontSize: '0.8rem',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  textAlign: 'left'
+                  textAlign: 'left',
+                  fontFamily: 'inherit'
                 }}
               >
                 💻 Servidor Local (http://localhost:6100)
@@ -141,29 +188,22 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
         </div>
 
         <form onSubmit={handleSubmit}>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: '#9ca3af', marginBottom: '0.4rem', fontWeight: 600 }}>
+          <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>
             Ingreso Manual de IP o Dominio:
           </label>
           <input
             type="text"
+            className="form-input"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Dejar en blanco para Proxy o ej: 10.79.80.242"
+            placeholder="Dejar en blanco para Proxy o ej: http://localhost:6100"
             style={{
-              width: '100%',
-              backgroundColor: '#030712',
-              border: '1px solid #374151',
-              borderRadius: '0.75rem',
-              color: '#ffffff',
-              padding: '0.75rem 1rem',
-              fontSize: '1rem',
               fontFamily: 'monospace',
-              outline: 'none',
-              marginBottom: '0.4rem'
+              marginBottom: '0.5rem'
             }}
           />
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '1.25rem' }}>
-            💡 <strong>Tip:</strong> Deja el campo vacío o usa "Proxy HTTPS Automático" cuando navegues desde un celular por HTTPS para evitar bloqueos por contenido mixto.
+          <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+            💡 <strong>Tip:</strong> Dejá el campo vacío o usá "Proxy HTTPS Automático" cuando navegues desde un celular por HTTPS.
           </p>
 
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -172,14 +212,15 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
               onClick={handleResetToAuto}
               style={{
                 backgroundColor: 'transparent',
-                color: '#6b7280',
+                color: 'var(--text-secondary)',
                 border: 'none',
                 fontSize: '0.8rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.3rem',
-                padding: '0.4rem 0'
+                padding: '0.4rem 0',
+                fontFamily: 'inherit'
               }}
               title="Restablecer detección automática predeterminada"
             >
@@ -187,39 +228,11 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
             </button>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  backgroundColor: '#1f2937',
-                  color: '#d1d5db',
-                  border: 'none',
-                  borderRadius: '0.75rem',
-                  padding: '0.65rem 1rem',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer'
-                }}
-              >
+              <button type="button" onClick={onClose} className="btn btn-secondary">
                 Cancelar
               </button>
-              <button
-                type="submit"
-                style={{
-                  backgroundColor: '#6366f1',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '0.75rem',
-                  padding: '0.65rem 1.25rem',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                <Check size={18} /> Guardar
+              <button type="submit" className="btn btn-primary">
+                <Check size={17} /> Guardar
               </button>
             </div>
           </div>

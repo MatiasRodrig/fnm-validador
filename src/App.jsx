@@ -1,12 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Settings, Smartphone, Search, Zap, UserCheck, LogOut, Camera } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  ShieldCheck,
+  Settings,
+  Search,
+  Zap,
+  UserCheck,
+  LogOut,
+  Camera,
+  Calendar,
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw
+} from 'lucide-react';
 import Scanner from './components/Scanner';
 import ResultCard from './components/ResultCard';
 import HistoryLog from './components/HistoryLog';
 import SettingsModal from './components/SettingsModal';
 import LoginView from './components/LoginView';
+import DaySelectorModal, { normalizeEventDay } from './components/DaySelectorModal';
 import { playBeep } from './utils/audio';
 import { getDefaultApiUrl, formatApiUrlForFetch } from './utils/urlHelper';
+import { useBarcodeScanner } from './utils/useBarcodeScanner';
+import logoImg from './assets/logo.png';
+
+const isStaffUser = (user) => {
+  if (!user) return false;
+  const role = (user.role || user.Role || '').trim().toLowerCase();
+  const username = (user.username || '').trim().toLowerCase();
+  if (role === 'customer') return false;
+  return (
+    role.includes('admin') ||
+    role.includes('cajer') ||
+    role.includes('validador') ||
+    role === 'cashier' ||
+    username.startsWith('admin.') ||
+    username.startsWith('cajero.')
+  );
+};
 
 const isAdminUser = (user) => {
   if (!user) return false;
@@ -31,15 +61,109 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const lastScannedRef = useRef({ token: '', time: 0 });
 
-  // User authentication session
+  // Active festival days from backend
+  const [eventDays, setEventDays] = useState([]);
+  const [loadingDays, setLoadingDays] = useState(false);
+
+  // User authentication session (strictly staff only)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('validator_user');
-      return savedUser ? JSON.parse(savedUser) : null;
+      if (!savedUser) return null;
+      const parsed = JSON.parse(savedUser);
+      if (!isStaffUser(parsed)) {
+        localStorage.removeItem('validator_user');
+        return null;
+      }
+      return parsed;
     } catch (e) {
       return null;
     }
   });
+
+  // Assigned event day for ticket validation
+  const [assignedEventDay, setAssignedEventDay] = useState(() => {
+    try {
+      const saved = localStorage.getItem('validator_assigned_event_day');
+      if (!saved) return null;
+      return normalizeEventDay(JSON.parse(saved));
+    } catch (e) {
+      return null;
+    }
+  });
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const assignedEventDayRef = useRef(assignedEventDay);
+
+  useEffect(() => {
+    assignedEventDayRef.current = assignedEventDay;
+  }, [assignedEventDay]);
+
+  const handleSelectDay = useCallback((day) => {
+    const normalized = normalizeEventDay(day);
+    setAssignedEventDay(normalized);
+    assignedEventDayRef.current = normalized;
+    if (normalized) {
+      localStorage.setItem('validator_assigned_event_day', JSON.stringify(normalized));
+      // Clear any previous NO_DAY warning when a valid day is chosen
+      setResult((prev) => (prev && !prev.ticket && prev.status === 'INVALID' ? null : prev));
+    } else {
+      localStorage.removeItem('validator_assigned_event_day');
+    }
+  }, []);
+
+  const fetchEventDays = useCallback(async () => {
+    setLoadingDays(true);
+    try {
+      const formattedUrl = formatApiUrlForFetch(apiUrl);
+      let rawList = [];
+      const res = await fetch(`${formattedUrl}/api/ticket-validator/event-days`);
+      if (res.ok) {
+        rawList = await res.json();
+      } else {
+        const resEvents = await fetch(`${formattedUrl}/api/events`);
+        if (resEvents.ok) {
+          rawList = await resEvents.json();
+        }
+      }
+
+      const normalizedList = (Array.isArray(rawList) ? rawList : [])
+        .map(normalizeEventDay)
+        .filter(Boolean);
+
+      setEventDays(normalizedList);
+
+      // Sync or validate currently assigned day against active server days
+      if (normalizedList.length > 0 && assignedEventDayRef.current) {
+        const matched = normalizedList.find((d) => d.id === assignedEventDayRef.current.id);
+        if (matched) {
+          setAssignedEventDay(matched);
+          assignedEventDayRef.current = matched;
+          localStorage.setItem('validator_assigned_event_day', JSON.stringify(matched));
+        } else {
+          // Saved day no longer exists in DB -> force operator to pick a valid day
+          handleSelectDay(null);
+          setIsDayModalOpen(true);
+        }
+      }
+    } catch (e) {
+      console.error('Error al obtener los días de la fiesta:', e);
+    } finally {
+      setLoadingDays(false);
+    }
+  }, [apiUrl, handleSelectDay]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchEventDays();
+    }
+  }, [currentUser, fetchEventDays]);
+
+  // Prompt day selection modal if logged in but no day selected yet
+  useEffect(() => {
+    if (currentUser && !assignedEventDay) {
+      setIsDayModalOpen(true);
+    }
+  }, [currentUser, assignedEventDay]);
 
   const isCheckOnlyRef = useRef(isCheckOnly);
   const currentUserRef = useRef(currentUser);
@@ -59,7 +183,7 @@ export default function App() {
     if (!userIsAdmin && isCheckOnly) {
       setIsCheckOnly(false);
     }
-  }, [currentUser, userIsAdmin]);
+  }, [currentUser, userIsAdmin, isCheckOnly]);
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData);
@@ -68,6 +192,9 @@ export default function App() {
     if (!isAdminUser(userData)) {
       setIsCheckOnly(false);
       isCheckOnlyRef.current = false;
+    }
+    if (!assignedEventDayRef.current) {
+      setIsDayModalOpen(true);
     }
   };
 
@@ -95,7 +222,6 @@ export default function App() {
 
     try {
       const urlObj = new URL(formatted);
-      // Bug #13 fix: Do not force a port on HTTPS or production domains
       const isLocalHost = urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1';
       if (!urlObj.port && isLocalHost && urlObj.protocol === 'http:') {
         urlObj.port = '6100';
@@ -160,9 +286,9 @@ export default function App() {
       }
     }
 
-    // Cooldown check for camera continuous scanning (4s for burn/validation, 1.2s for check-only)
+    // Cooldown check for camera continuous scanning (3.5s for burn/validation, 1.2s for check-only)
     const currentCheckOnly = isCheckOnlyRef.current;
-    const cooldownMs = currentCheckOnly ? 1200 : 4000;
+    const cooldownMs = currentCheckOnly ? 1200 : 3500;
     const now = Date.now();
 
     if (lastScannedRef.current.token === cleanToken && now - lastScannedRef.current.time < cooldownMs) {
@@ -170,11 +296,23 @@ export default function App() {
     }
     lastScannedRef.current = { token: cleanToken, time: now };
 
+    // Strictly require an assigned event day with a valid ID before scanning
+    const activeDay = assignedEventDayRef.current;
+    if (!activeDay || !activeDay.id) {
+      setIsDayModalOpen(true);
+      setResult({
+        status: 'INVALID',
+        message: '⚠️ Debe seleccionar el Día de la Fiesta antes de registrar o quemar tickets.'
+      });
+      playBeep('error');
+      return;
+    }
+
     setIsProcessing(true);
 
     const currentU = currentUserRef.current;
     const currentIsAdmin = isAdminUser(currentU);
-    const scannedByUsername = currentU ? (currentU.username || currentU.fullName) : 'AppValidador';
+    const scannedByUsername = currentU ? currentU.username || currentU.fullName : 'ValidadorOficial';
 
     try {
       const formattedApiUrl = formatApiUrlForFetch(apiUrl);
@@ -184,72 +322,92 @@ export default function App() {
         body: JSON.stringify({
           scannedData: cleanToken,
           scannedBy: scannedByUsername,
-          userRole: currentU?.role,
+          userRole: currentU?.role || currentU?.Role,
           adminUsername: currentIsAdmin ? currentU?.username : undefined,
-          checkOnly: currentCheckOnly
+          checkOnly: currentCheckOnly,
+          eventDayId: Number(activeDay.id)
         })
       });
 
       const data = await response.json();
-      const nowTime = new Date().toLocaleTimeString();
+      const resStatus = data.status || data.Status;
+      const resSuccess = data.success ?? data.Success;
+      const resTicket = data.ticket || data.Ticket;
+      const resMessage = data.message || data.Message;
+      const nowTime = new Date().toLocaleTimeString('es-AR');
 
-      if (response.ok && data.status === 'CHECK_ONLY') {
-        // NON-DESTRUCTIVE INSPECTION MODE (Blue/Purple)
-        setResult(data);
+      const normalizedData = {
+        ...data,
+        status: resStatus,
+        success: resSuccess,
+        ticket: resTicket,
+        message: resMessage
+      };
+
+      if (response.ok && resStatus === 'CHECK_ONLY') {
+        setResult(normalizedData);
         playBeep('success');
         setHistory((prev) => [
           {
             status: 'CHECK_ONLY',
-            ticket: data.ticket,
+            ticket: resTicket,
             token: cleanToken,
             time: nowTime
           },
           ...prev
         ]);
-      } else if (response.ok && data.success) {
-        // VALIDATED TICKET (Green)
-        setResult(data);
+      } else if (response.ok && resSuccess) {
+        setResult({ ...normalizedData, status: 'VALIDATED' });
         playBeep('success');
         setHistory((prev) => [
           {
             status: 'VALIDATED',
-            ticket: data.ticket,
+            ticket: resTicket,
             token: cleanToken,
             time: nowTime
           },
           ...prev
         ]);
-      } else if (data.status === 'NOT_SOLD') {
-        // PRE-PRINTED UNSOLD TICKET (Orange)
-        setResult(data);
+      } else if (resStatus === 'WRONG_DAY') {
+        setResult({ ...normalizedData, status: 'WRONG_DAY' });
+        playBeep('error');
+        setHistory((prev) => [
+          {
+            status: 'WRONG_DAY',
+            ticket: resTicket,
+            token: cleanToken,
+            time: nowTime
+          },
+          ...prev
+        ]);
+      } else if (resStatus === 'NOT_SOLD') {
+        setResult({ ...normalizedData, status: 'NOT_SOLD' });
         playBeep('error');
         setHistory((prev) => [
           {
             status: 'NOT_SOLD',
-            ticket: data.ticket,
+            ticket: resTicket,
             token: cleanToken,
             time: nowTime
           },
           ...prev
         ]);
-      } else if (response.status === 409) {
-        // ALREADY USED TICKET (Red)
-        setResult(data);
+      } else if (response.status === 409 || resStatus === 'ALREADY_USED') {
+        setResult({ ...normalizedData, status: 'ALREADY_USED' });
         playBeep('already_used');
         setHistory((prev) => [
           {
             status: 'ALREADY_USED',
-            ticket: data.ticket,
+            ticket: resTicket,
             token: cleanToken,
             time: nowTime
           },
           ...prev
         ]);
       } else if (response.status === 403) {
-        // FORBIDDEN (Yellow/Orange)
         const forbiddenRes = {
           status: 'INVALID',
-          message: data.message || 'El modo consulta es exclusivo para administradores.',
+          message: resMessage || 'El modo consulta es exclusivo para administradores.',
           token: cleanToken
         };
         setResult(forbiddenRes);
@@ -263,10 +421,9 @@ export default function App() {
           ...prev
         ]);
       } else {
-        // INVALID / NOT FOUND (Yellow)
         const invalidRes = {
           status: 'INVALID',
-          message: data.message || 'Ticket NO ENCONTRADO o adulterado.',
+          message: resMessage || 'Ticket NO ENCONTRADO o código QR inválido.',
           token: cleanToken
         };
         setResult(invalidRes);
@@ -284,7 +441,7 @@ export default function App() {
       console.error('Network / API Error:', err);
       const errRes = {
         status: 'ERROR',
-        message: `Error al conectar con la API (${apiUrl}). Verifique la URL en la configuración.`,
+        message: `Error al conectar con el servidor (${apiUrl || 'Proxy'}). Verifique la conexión.`,
         token: cleanToken
       };
       setResult(errRes);
@@ -294,12 +451,18 @@ export default function App() {
     }
   };
 
+  // Global USB / Bluetooth barcode & QR scanner listener
+  useBarcodeScanner(
+    verifyToken,
+    Boolean(currentUser && !isDayModalOpen && !isSettingsOpen)
+  );
+
   const handleClearHistory = () => {
     setHistory([]);
     setResult(null);
   };
 
-  // If user is not authenticated, render LoginView
+  // ─── Unauthenticated View (Login) ───────────────────────────────────────────
   if (!currentUser) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -308,37 +471,39 @@ export default function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0.75rem 0',
-            borderBottom: '1px solid rgba(255,255,255,0.08)'
+            padding: '0.9rem 0',
+            borderBottom: '1px solid var(--border)',
+            gap: '0.75rem'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)', padding: '0.5rem', borderRadius: '0.75rem', display: 'flex' }}>
-              <ShieldCheck size={26} color="#6366f1" />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <img
+              src={logoImg}
+              alt="Fiesta Nacional de la Madera"
+              style={{
+                height: '44px',
+                width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 10px rgba(252, 170, 1, 0.35))'
+              }}
+            />
             <div>
-              <h1 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
-                VALENT - FNDLM 2026
+              <h1 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1 }}>
+                CONTROL DE ACCESOS OFICIAL
               </h1>
-              <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                Sistema de Escaneo de Entradas y Cantina
+              <span style={{ fontSize: '0.74rem', color: 'var(--brand-gold)', fontWeight: 700 }}>
+                41° Fiesta Nacional de la Madera · San Vicente
               </span>
             </div>
           </div>
+
           <button
             onClick={() => setIsSettingsOpen(true)}
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#9ca3af',
-              border: '1px solid #374151',
-              borderRadius: '0.75rem',
-              padding: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex'
-            }}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.5rem' }}
             title="Configurar servidor API"
           >
-            <Settings size={20} />
+            <Settings size={19} />
           </button>
         </header>
 
@@ -354,43 +519,71 @@ export default function App() {
     );
   }
 
+  // ─── Authenticated Official Validator View ──────────────────────────────────
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      {/* Top Navigation Header */}
+      {/* Top Official Navbar */}
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0.75rem 0',
+          padding: '0.85rem 0',
           marginBottom: '1rem',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          gap: '0.5rem'
+          borderBottom: '1px solid var(--border)',
+          gap: '0.75rem',
+          flexWrap: 'wrap'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <img
+            src={logoImg}
+            alt="Fiesta Nacional de la Madera"
             style={{
-              backgroundColor: userIsAdmin && isCheckOnly ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.2)',
-              padding: '0.5rem',
-              borderRadius: '0.75rem',
-              display: 'flex'
+              height: '46px',
+              width: 'auto',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 0 10px rgba(252, 170, 1, 0.35))'
             }}
-          >
-            <ShieldCheck size={26} color={userIsAdmin && isCheckOnly ? '#818cf8' : '#10b981'} />
-          </div>
+          />
           <div>
-            <h1 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
-              VALENT - FNDLM 2026
-            </h1>
-            <span style={{ fontSize: '0.75rem', color: userIsAdmin && isCheckOnly ? '#a5b4fc' : '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1 }}>
+                REGISTRO DE TICKETS
+              </h1>
+              <span
+                style={{
+                  fontSize: '0.66rem',
+                  fontWeight: 800,
+                  padding: '0.12rem 0.5rem',
+                  borderRadius: 'var(--radius-full)',
+                  background: 'rgba(218, 71, 6, 0.2)',
+                  border: '1px solid rgba(252, 170, 1, 0.35)',
+                  color: 'var(--brand-gold)',
+                  textTransform: 'uppercase'
+                }}
+              >
+                Oficial
+              </span>
+            </div>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: userIsAdmin && isCheckOnly ? 'var(--info)' : 'var(--success)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                fontWeight: 700,
+                marginTop: '0.15rem'
+              }}
+            >
               {userIsAdmin && isCheckOnly ? (
                 <>
-                  <Search size={12} color="#a5b4fc" /> Modo Consulta Admin (Sin Quemar QR)
+                  <Search size={12} /> Modo Consulta Admin (Sin Quemar QR)
                 </>
               ) : (
                 <>
-                  <Camera size={12} color="#10b981" /> Modo Ingreso (Validación / Quemado)
+                  <Camera size={12} /> Modo Control de Ingreso (Quemado por Día)
                 </>
               )}
             </span>
@@ -398,25 +591,34 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {/* Active User Badge */}
+          {/* Active Operator Badge */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
-              backgroundColor: '#1f2937',
-              border: '1px solid #374151',
-              borderRadius: '0.75rem',
-              padding: '0.35rem 0.65rem',
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.38rem 0.7rem',
               fontSize: '0.78rem',
-              color: '#e5e7eb'
+              color: 'var(--text-primary)'
             }}
-            title={`Rol: ${currentUser.role || 'Validador'}`}
+            title={`Rol: ${currentUser.role || currentUser.Role || 'Validador'}`}
           >
-            <UserCheck size={14} color="#6366f1" />
-            <span style={{ fontWeight: 700 }}>{currentUser.username}</span>
-            <span style={{ fontSize: '0.7rem', color: '#9ca3af', backgroundColor: '#111827', padding: '0.1rem 0.35rem', borderRadius: '0.4rem' }}>
-              {currentUser.role}
+            <UserCheck size={14} color="var(--brand-gold)" />
+            <span style={{ fontWeight: 800 }}>{currentUser.username}</span>
+            <span
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--brand-gold)',
+                backgroundColor: 'rgba(218, 71, 6, 0.18)',
+                padding: '0.1rem 0.4rem',
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 700
+              }}
+            >
+              {currentUser.role || currentUser.Role}
             </span>
           </div>
 
@@ -425,116 +627,243 @@ export default function App() {
             <div
               style={{
                 display: 'flex',
-                backgroundColor: '#111827',
-                border: isCheckOnly ? '1px solid rgba(99,102,241,0.8)' : '1px solid #374151',
-                borderRadius: '0.75rem',
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
                 padding: '0.2rem'
               }}
             >
               <button
+                type="button"
                 onClick={() => {
                   setIsCheckOnly(false);
                   isCheckOnlyRef.current = false;
                 }}
                 style={{
-                  backgroundColor: !isCheckOnly ? '#10b981' : 'transparent',
-                  color: !isCheckOnly ? '#ffffff' : '#9ca3af',
+                  background: !isCheckOnly ? 'var(--accent-gradient)' : 'transparent',
+                  color: !isCheckOnly ? '#ffffff' : 'var(--text-secondary)',
                   border: 'none',
-                  borderRadius: '0.5rem',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '0.35rem 0.65rem',
                   cursor: 'pointer',
                   fontSize: '0.75rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem'
+                  gap: '0.3rem',
+                  fontFamily: 'inherit'
                 }}
-                title="Modo Ingreso: Válida el acceso y marca el ticket como USADO en la base de datos"
+                title="Modo Ingreso: Valida el acceso y quema el ticket del día seleccionado"
               >
-                <Zap size={14} /> Ingreso
+                <Zap size={13} /> Quemar
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsCheckOnly(true);
                   isCheckOnlyRef.current = true;
                 }}
                 style={{
-                  backgroundColor: isCheckOnly ? '#6366f1' : 'transparent',
-                  color: isCheckOnly ? '#ffffff' : '#9ca3af',
+                  backgroundColor: isCheckOnly ? '#0284c7' : 'transparent',
+                  color: isCheckOnly ? '#ffffff' : 'var(--text-secondary)',
                   border: 'none',
-                  borderRadius: '0.5rem',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '0.35rem 0.65rem',
                   cursor: 'pointer',
                   fontSize: '0.75rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem'
+                  gap: '0.3rem',
+                  fontFamily: 'inherit'
                 }}
-                title="Modo Consulta: Verifica validez del QR sin quemar ni modificar el registro (Exclusivo Admin)"
+                title="Modo Consulta: Verifica validez del QR sin quemar el ticket (Exclusivo Admin)"
               >
-                <Search size={14} /> Consulta
+                <Search size={13} /> Consulta
               </button>
             </div>
-          ) : (
-            /* Cashiers / Validators Mode Badge (Fixed to Validation Mode) */
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '0.75rem',
-                padding: '0.35rem 0.65rem',
-                fontSize: '0.75rem',
-                fontWeight: 700
-              }}
-              title="Operador de acceso: Validación directa y quemado de tickets"
-            >
-              <Zap size={14} /> Modo Ingreso
-            </div>
-          )}
+          ) : null}
 
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#9ca3af',
-              border: '1px solid #374151',
-              borderRadius: '0.75rem',
-              padding: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex'
-            }}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.45rem' }}
             title="Configurar servidor API"
           >
-            <Settings size={20} />
+            <Settings size={18} />
           </button>
 
           <button
+            type="button"
             onClick={handleLogout}
-            style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              color: '#f87171',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '0.75rem',
-              padding: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex'
-            }}
-            title="Cerrar sesión validador"
+            className="btn btn-danger btn-sm"
+            style={{ padding: '0.45rem' }}
+            title="Cerrar sesión del operador"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
           </button>
         </div>
       </header>
 
-      {/* Main Content Area (Camera Scan Only) */}
+      {/* ─── Official Event Day Selector Panel (First-Class Day Control) ─── */}
+      <section
+        className="card"
+        style={{
+          padding: '1.15rem 1.25rem',
+          marginBottom: '1.25rem',
+          border: assignedEventDay ? '1px solid rgba(252, 170, 1, 0.4)' : '2px solid rgba(239, 68, 68, 0.7)',
+          background: assignedEventDay
+            ? 'linear-gradient(135deg, rgba(33, 26, 30, 0.96) 0%, rgba(21, 18, 21, 0.96) 100%)'
+            : 'linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(21, 18, 21, 0.96) 100%)'
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            marginBottom: eventDays.length > 0 ? '0.9rem' : 0
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div
+              style={{
+                background: assignedEventDay ? 'rgba(218, 71, 6, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                border: assignedEventDay
+                  ? '1px solid rgba(252, 170, 1, 0.4)'
+                  : '1px solid rgba(239, 68, 68, 0.5)',
+                padding: '0.5rem',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex'
+              }}
+            >
+              {assignedEventDay ? (
+                <Calendar size={20} color="var(--brand-gold)" />
+              ) : (
+                <AlertTriangle size={20} color="#f87171" />
+              )}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: assignedEventDay ? 'var(--brand-gold)' : '#fca5a5'
+                  }}
+                >
+                  {assignedEventDay ? 'Día de la Fiesta Activo' : '⚠️ Selección Obligatoria'}
+                </span>
+                {assignedEventDay && (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      background: 'rgba(34, 197, 94, 0.15)',
+                      color: '#4ade80',
+                      border: '1px solid rgba(34, 197, 94, 0.35)',
+                      padding: '0.08rem 0.45rem',
+                      borderRadius: 'var(--radius-full)'
+                    }}
+                  >
+                    Filtro por Día Activo
+                  </span>
+                )}
+              </div>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                {assignedEventDay
+                  ? `${assignedEventDay.title}${
+                      assignedEventDay.date
+                        ? ` — ${new Date(assignedEventDay.date).toLocaleDateString('es-AR', {
+                            weekday: 'short',
+                            day: '2-digit',
+                            month: 'short'
+                          })}`
+                        : ''
+                    }`
+                  : 'Seleccioná el día de la fiesta para habilitar el quemado'}
+              </h2>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setIsDayModalOpen(true)}
+              className={assignedEventDay ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+            >
+              <Calendar size={14} />
+              {assignedEventDay ? 'Cambiar Día' : 'Elegir Día'}
+            </button>
+          </div>
+        </div>
+
+        {/* Direct 1-Click Day Selector Pills */}
+        {eventDays.length > 0 && (
+          <div className="day-pills-grid">
+            {eventDays.map((day) => {
+              const isSelected = assignedEventDay?.id === day.id;
+              const shortDate = day.date
+                ? new Date(day.date).toLocaleDateString('es-AR', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short'
+                  })
+                : '';
+
+              return (
+                <button
+                  key={day.id}
+                  type="button"
+                  onClick={() => handleSelectDay(day)}
+                  className={`day-pill-btn ${isSelected ? 'active' : ''}`}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        color: isSelected ? 'var(--brand-gold)' : 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {day.title}
+                    </div>
+                    {shortDate && (
+                      <div
+                        style={{
+                          fontSize: '0.73rem',
+                          color: 'var(--text-secondary)',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {shortDate}
+                      </div>
+                    )}
+                  </div>
+                  {isSelected && <CheckCircle2 size={17} color="var(--brand-gold)" style={{ flexShrink: 0 }} />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Main Content Area */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <ResultCard result={result} />
-        <Scanner onVerifyToken={verifyToken} isProcessing={isProcessing} />
+        <ResultCard result={result} assignedDay={assignedEventDay} />
+        <Scanner
+          onVerifyToken={verifyToken}
+          isProcessing={isProcessing}
+          disabled={!assignedEventDay}
+        />
         <HistoryLog history={history} onClear={handleClearHistory} />
       </main>
 
@@ -544,6 +873,19 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         apiUrl={apiUrl}
         onSaveApiUrl={handleSaveApiUrl}
+      />
+
+      {/* Day Selector Modal */}
+      <DaySelectorModal
+        isOpen={isDayModalOpen}
+        onClose={() => setIsDayModalOpen(false)}
+        assignedDay={assignedEventDay}
+        onSelectDay={handleSelectDay}
+        apiUrl={apiUrl}
+        availableDays={eventDays}
+        onRefreshDays={setEventDays}
+        loadingDays={loadingDays}
+        canDismiss={Boolean(assignedEventDay)}
       />
     </div>
   );

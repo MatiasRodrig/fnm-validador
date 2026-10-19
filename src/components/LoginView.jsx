@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { ShieldCheck, User, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { ShieldCheck, User, Lock, LogIn, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { formatApiUrlForFetch } from '../utils/urlHelper';
+import logoImg from '../assets/logo.png';
 
 export default function LoginView({ apiUrl, onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('Por favor ingresá usuario y contraseña.');
+      setError('Por favor ingresá tu usuario y contraseña asignados.');
       return;
     }
 
@@ -32,13 +34,35 @@ export default function LoginView({ apiUrl, onLoginSuccess }) {
       const data = await response.json();
 
       if (response.ok) {
+        const role = (data.role || data.Role || '').trim().toLowerCase();
+        const usernameLower = (data.username || '').trim().toLowerCase();
+
+        if (role === 'customer') {
+          setError('⛔ Acceso restringido. Este sistema es de uso exclusivo para el personal acreditado de control de accesos.');
+          return;
+        }
+
+        const isAuthorizedStaff =
+          role === 'admin' ||
+          role.startsWith('admin') ||
+          role.includes('cajer') ||
+          role.includes('validador') ||
+          role === 'cashier' ||
+          usernameLower.startsWith('cajero') ||
+          usernameLower.startsWith('admin');
+
+        if (!isAuthorizedStaff) {
+          setError('⛔ Acceso restringido. Se requiere una cuenta de Operador de Accesos, Cajero o Administrador.');
+          return;
+        }
+
         onLoginSuccess(data);
       } else {
         setError(typeof data === 'string' ? data : data.message || 'Usuario o contraseña incorrectos.');
       }
     } catch (err) {
       console.error('Error al conectar con API:', err);
-      setError(`Error de conexión con la API (${apiUrl}). Verifique la URL de servidor.`);
+      setError(`Error de conexión con el servidor (${apiUrl || 'Proxy Automático'}). Verifique la red o la configuración.`);
     } finally {
       setIsLoading(false);
     }
@@ -51,159 +75,209 @@ export default function LoginView({ apiUrl, onLoginSuccess }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem 1rem'
+        padding: '2rem 0.5rem',
+        background: 'radial-gradient(ellipse 65% 50% at 50% 0%, rgba(218, 71, 6, 0.16) 0%, transparent 70%)'
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '420px',
-          backgroundColor: '#111827',
-          border: '1px solid #374151',
-          borderRadius: '1.25rem',
-          padding: '2rem',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)'
-        }}
-      >
+      <div style={{ width: '100%', maxWidth: '430px' }}>
+        {/* Official Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <img
+              src={logoImg}
+              alt="Fiesta Nacional de la Madera"
+              style={{
+                height: '82px',
+                width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 16px rgba(252, 170, 1, 0.4))'
+              }}
+            />
+          </div>
+
           <div
             style={{
               display: 'inline-flex',
-              padding: '0.85rem',
-              backgroundColor: 'rgba(99, 102, 241, 0.15)',
-              borderRadius: '1rem',
-              marginBottom: '1rem',
-              color: '#6366f1'
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              background: 'rgba(218, 71, 6, 0.16)',
+              color: 'var(--brand-gold)',
+              padding: '0.28rem 0.85rem',
+              borderRadius: '9999px',
+              border: '1px solid rgba(252, 170, 1, 0.35)',
+              marginBottom: '0.65rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em'
             }}
           >
-            <ShieldCheck size={40} />
+            <ShieldCheck size={14} color="var(--brand-gold)" /> Control de Acceso Oficial · 41° Edición
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>
-            Acceso Validador
-          </h2>
-          <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-            Iniciá sesión para registrar la auditoría de tickets validados
+
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+            Registro de Tickets
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+            Ingresá con tu usuario asignado para habilitar el puesto de validación por día
           </p>
         </div>
 
-        {error && (
+        {/* Login Card */}
+        <div
+          className="card"
+          style={{
+            padding: '2rem',
+            position: 'relative',
+            overflow: 'hidden',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-lg)'
+          }}
+        >
+          {/* Top Accent Gradient Bar */}
           <div
             style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid #ef4444',
-              color: '#fca5a5',
-              padding: '0.75rem 1rem',
-              borderRadius: '0.75rem',
-              fontSize: '0.85rem',
-              marginBottom: '1.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'var(--accent-gradient)'
             }}
-          >
-            <AlertCircle size={18} style={{ flexShrink: 0 }} />
-            <span>{error}</span>
-          </div>
-        )}
+          />
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#d1d5db', marginBottom: '0.4rem' }}>
-              Usuario (Cajero / Validador)
-            </label>
-            <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }}>
-                <User size={18} />
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ej: cajero.entradas o admin.tecnico"
-                autoComplete="username"
-                autoFocus
-                style={{
-                  width: '100%',
-                  backgroundColor: '#1f2937',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  padding: '0.75rem 0.75rem 0.75rem 2.6rem',
-                  color: '#ffffff',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
+          {error && (
+            <div
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.14)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#fca5a5',
+                padding: '0.8rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.55rem'
+              }}
+            >
+              <AlertCircle size={18} style={{ flexShrink: 0, color: '#ef4444' }} />
+              <span>{error}</span>
             </div>
-          </div>
+          )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#d1d5db', marginBottom: '0.4rem' }}>
-              Contraseña
-            </label>
-            <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }}>
-                <Lock size={18} />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="validator-username">
+                Usuario Operador
+              </label>
+              <div style={{ position: 'relative' }}>
+                <User
+                  size={17}
+                  style={{
+                    position: 'absolute',
+                    left: '0.9rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)'
+                  }}
+                />
+                <input
+                  id="validator-username"
+                  type="text"
+                  className="form-input"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ingresá tu usuario dedicado"
+                  autoComplete="username"
+                  autoFocus
+                  style={{ paddingLeft: '2.6rem' }}
+                />
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                style={{
-                  width: '100%',
-                  backgroundColor: '#1f2937',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  padding: '0.75rem 0.75rem 0.75rem 2.6rem',
-                  color: '#ffffff',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
+            <div className="form-group">
+              <label className="form-label" htmlFor="validator-password">
+                Contraseña
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock
+                  size={17}
+                  style={{
+                    position: 'absolute',
+                    left: '0.9rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)'
+                  }}
+                />
+                <input
+                  id="validator-password"
+                  type={showPwd ? 'text' : 'password'}
+                  className="form-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Ingresá tu contraseña"
+                  autoComplete="current-password"
+                  style={{ paddingLeft: '2.6rem', paddingRight: '2.6rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((v) => !v)}
+                  tabIndex={-1}
+                  style={{
+                    position: 'absolute',
+                    right: '0.85rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex'
+                  }}
+                  title={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPwd ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn btn-primary btn-full"
+              style={{
+                marginTop: '0.4rem',
+                padding: '0.9rem',
+                fontSize: '1rem'
+              }}
+            >
+              {isLoading ? (
+                'Verificando credenciales...'
+              ) : (
+                <>
+                  <LogIn size={19} /> Ingresar al Puesto de Control
+                </>
+              )}
+            </button>
+          </form>
+
+          <div
             style={{
-              marginTop: '0.5rem',
-              backgroundColor: '#6366f1',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '0.75rem',
-              padding: '0.85rem',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: isLoading ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              opacity: isLoading ? 0.7 : 1,
-              transition: 'background-color 0.2s'
+              marginTop: '1.5rem',
+              textAlign: 'center',
+              borderTop: '1px solid var(--border)',
+              paddingTop: '1rem'
             }}
           >
-            {isLoading ? (
-              'Autenticando...'
-            ) : (
-              <>
-                <LogIn size={20} /> Ingresar al Validador
-              </>
-            )}
-          </button>
-        </form>
-
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', borderTop: '1px solid #1f2937', paddingTop: '1rem' }}>
-          <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-            Credenciales de prueba: <br />
-            <code style={{ color: '#a5b4fc' }}>cajero.entradas</code> / <code style={{ color: '#a5b4fc' }}>cajero123</code>
-            <br />
-            <code style={{ color: '#a5b4fc' }}>admin.tecnico</code> / <code style={{ color: '#a5b4fc' }}>admin123</code>
-          </p>
+            <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Uso exclusivo para personal acreditado de la{' '}
+              <strong style={{ color: 'var(--text-secondary)' }}>Fiesta Nacional de la Madera</strong>.
+              <br />
+              Cada validación queda registrada bajo su usuario dedicado.
+            </p>
+          </div>
         </div>
       </div>
     </div>
